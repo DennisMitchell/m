@@ -1,4 +1,7 @@
-import ast, cmath, dictionary, fractions, functools, itertools, locale, math, numpy, operator, parser, re, sympy, sys
+import ast, dictionary, fractions, functools, itertools, locale, numpy, operator, parser, sys
+
+import re as regex
+from sympy import *
 
 code_page  = '''¡¢£¤¥¦©¬®µ½¿€ÆÇÐÑ×ØŒÞßæçðıȷñ÷øœþ !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~¶'''
 code_page += '''°¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ƁƇƊƑƓƘⱮƝƤƬƲȤɓƈɗƒɠɦƙɱɲƥʠɼʂƭʋȥẠḄḌẸḤỊḲḶṂṆỌṚṢṬỤṾẈỴẒȦḂĊḊĖḞĠḢİĿṀṄȮṖṘṠṪẆẊẎŻạḅḍẹḥịḳḷṃṇọṛṣṭụṿẉỵẓȧḃċḋėḟġḣŀṁṅȯṗṙṡṫẇẋẏż«»‘’“”'''
@@ -27,7 +30,7 @@ def create_chain(chain, arity):
 def create_literal(string):
 	return attrdict(
 		arity = 0,
-		call = lambda: safe_eval(string, False)
+		call = lambda: listify(eval(string))
 	)
 
 def copy(atom, value):
@@ -53,15 +56,6 @@ def conv_monadic_integer(link, arg):
 		return link(int(arg))
 	except:
 		return 0
-
-def div(dividend, divisor, floor = False):
-	if divisor == 0:
-		return nan if dividend == 0 else inf
-	if divisor == inf:
-		return 0
-	if floor or (type(dividend) == int and type(divisor) == int and not dividend % divisor):
-		return int(dividend // divisor)
-	return dividend / divisor
 
 def depth(link):
 	if type(link) != list:
@@ -147,7 +141,7 @@ def from_base(digits, base):
 def from_exponents(exponents):
 	integer = 1
 	for index, exponent in enumerate(exponents):
-		integer *= sympy.ntheory.generate.prime(index + 1) ** exponent
+		integer *= ntheory.generate.prime(index + 1) ** exponent
 	return integer
 
 def identity(argument):
@@ -226,9 +220,10 @@ def leading_constant(chain):
 	return chain and arities(chain) + [1] < [0, 2] * len(chain)
 
 def listify(iterable, dirty = False):
-	if type(iterable) == str and dirty:
+	the_type = type(iterable)
+	if the_type == str and dirty:
 		return list(iterable)
-	if type(iterable) in (int, float, complex) or (type(iterable) == str and len(iterable) == 1):
+	if not hasattr(iterable,'__iter__') or (the_type == str and len(iterable) == 1):
 		return iterable
 	return list(listify(item, dirty) for item in iterable)
 
@@ -397,23 +392,17 @@ def parse_literal(literal_match):
 		parsed = [[string] if len(string) == 1 else string for string in parsed]
 		if len(parsed) == 1:
 			parsed = parsed[0]
+		return repr(parsed)
 	else:
-		parsed = eval('+ 1j *'.join([
-			repr(eval('* 10 **'.join(['-1' if part == '-' else (part + '5' if part[-1:] == '.' else part) or repr(2 * index + 1)
-			for index, part in enumerate(component.split('ȷ'))])) if component else index)
+		parsed = sympify('+ 1j *'.join([
+			repr(sympify('* 10 **'.join(['-1' if part == '-' else (part + '5' if part[-1:] == '.' else part) or repr(2 * index + 1)
+			for index, part in enumerate(component.split('ȷ'))]), rational = True) if component else index)
 			for index, component in enumerate(literal.split('ı'))
-		]))
-	return repr(parsed) + ' '
+		]), rational = True)
+		return 'sympify(%s, rational = True)'%repr(str(parsed))
 
 def Pi(number):
-	if type(number) == int:
-		if number < 0:
-			return inf
-		try:
-			return math.factorial(number)
-		except:
-			return functools.reduce(operator.mul, range(1, number + 1), 1)
-	return math.gamma(number + 1)
+	return gamma(number + 1)
 
 def powerset(array):
 	array = iterable(array, make_range = True)
@@ -550,9 +539,9 @@ def to_case(argument, lower = False, swap = False, title = False, upper = False)
 def to_exponents(integer):
 	if integer == 1:
 		return []
-	pairs = sympy.ntheory.factor_.factorint(integer)
+	pairs = ntheory.factor_.factorint(integer)
 	exponents = []
-	for prime in sympy.ntheory.generate.primerange(2, max(pairs) + 1):
+	for prime in ntheory.generate.primerange(2, max(pairs) + 1):
 		if prime in pairs:
 			exponents.append(pairs[prime])
 		else:
@@ -690,13 +679,13 @@ atoms = {
 	'Ċ': attrdict(
 		arity = 1,
 		ldepth = 0,
-		call = lambda z: overload((math.ceil, identity), z)
+		call = lambda z: overload((ceil, identity), z)
 	),
 	'c': attrdict(
 		arity = 2,
 		ldepth = 0,
 		rdepth = 0,
-		call = lambda x, y: div(Pi(x), Pi(x - y) * Pi(y))
+		call = lambda x, y: Pi(x) / Pi(x - y) / Pi(y)
 	),
 	'ċ': attrdict(
 		arity = 2,
@@ -747,7 +736,7 @@ atoms = {
 	'Ḟ': attrdict(
 		arity = 1,
 		ldepth = 0,
-		call = lambda z: overload((math.floor, identity), z)
+		call = lambda z: overload((floor, identity), z)
 	),
 	'f': attrdict(
 		arity = 2,
@@ -774,7 +763,7 @@ atoms = {
 	'H': attrdict(
 		arity = 1,
 		ldepth = 0,
-		call = lambda z: div(z, 2)
+		call = lambda z: z / 2
 	),
 	'Ḥ': attrdict(
 		arity = 1,
@@ -798,7 +787,7 @@ atoms = {
 	'İ': attrdict(
 		arity = 1,
 		ldepth = 0,
-		call = lambda z: div(1, z)
+		call = lambda z: S(1) / z
 	),
 	'i': attrdict(
 		arity = 2,
@@ -807,7 +796,7 @@ atoms = {
 	'ị': attrdict(
 		arity = 2,
 		ldepth = 0,
-		call = lambda x, y, I = iterable: I(y)[(int(x) - 1) % len(I(y))] if int(x) == x else [I(y)[(math.floor(x) - 1) % len(I(y))], I(y)[(math.ceil(x) - 1) % len(I(y))]]
+		call = lambda x, y, I = iterable: I(y)[(int(x) - 1) % len(I(y))] if int(x) == x else [I(y)[(floor(x) - 1) % len(I(y))], I(y)[(ceil(x) - 1) % len(I(y))]]
 	),
 	'j': attrdict(
 		arity = 2,
@@ -821,7 +810,7 @@ atoms = {
 		arity = 2,
 		ldepth = 0,
 		rdepth = 0,
-		call = lambda x, y: overload((math.log, cmath.log), x, y)
+		call = log
 	),
 	'ḷ': attrdict(
 		arity = 2,
@@ -1051,7 +1040,7 @@ atoms = {
 		arity = 2,
 		ldepth = 0,
 		rdepth = 0,
-		call = lambda x, y: div(x, y, floor = True)
+		call = operator.floordiv
 	),
 	',': attrdict(
 		arity = 2,
@@ -1083,7 +1072,7 @@ atoms = {
 		arity = 2,
 		ldepth = 0,
 		rdepth = 0,
-		call = div
+		call = operator.truediv
 	),
 	'%': attrdict(
 		arity = 2,
@@ -1132,12 +1121,12 @@ atoms = {
 	'½': attrdict(
 		arity = 1,
 		ldepth = 0,
-		call = lambda z: overload((math.sqrt, cmath.sqrt), z)
+		call = sqrt
 	),
 	'°': attrdict(
 		arity = 1,
 		ldepth = 0,
-		call = math.radians
+		call = rad
 	),
 	'¬': attrdict(
 		arity = 1,
@@ -1181,22 +1170,22 @@ atoms = {
 	'ÆA': attrdict(
 		arity = 1,
 		ldepth = 0,
-		call = lambda z: overload((math.cos, cmath.cos), z)
+		call = cos
 	),
 	'ÆẠ': attrdict(
 		arity = 1,
 		ldepth = 0,
-		call = lambda z: overload((math.acos, cmath.acos), z)
+		call = acos
 	),
 	'ÆC': attrdict(
 		arity = 1,
 		ldepth = 0,
-		call = sympy.ntheory.generate.primepi
+		call = ntheory.generate.primepi
 	),
 	'ÆD': attrdict(
 		arity = 1,
 		ldepth = 0,
-		call = sympy.ntheory.factor_.divisors
+		call = ntheory.factor_.divisors
 	),
 	'ÆE': attrdict(
 		arity = 1,
@@ -1211,47 +1200,47 @@ atoms = {
 	'ÆF': attrdict(
 		arity = 1,
 		ldepth = 0,
-		call = lambda z: [[x, y] for x, y in sympy.ntheory.factor_.factorint(z).items()]
+		call = lambda z: [[x, y] for x, y in ntheory.factor_.factorint(z).items()]
 	),
 	'Æe': attrdict(
 		arity = 1,
 		ldepth = 0,
-		call = lambda z: overload((math.exp, cmath.exp), z)
+		call = exp
 	),
 	'Æf': attrdict(
 		arity = 1,
 		ldepth = 0,
-		call = lambda z: rld(sympy.ntheory.factor_.factorint(z).items())
+		call = lambda z: rld(ntheory.factor_.factorint(z).items())
 	),
 	'Æl': attrdict(
 		arity = 1,
 		ldepth = 0,
-		call = lambda z: overload((math.log, cmath.log), z)
+		call = log
 	),
 	'ÆN': attrdict(
 		arity = 1,
 		ldepth = 0,
-		call = sympy.ntheory.generate.prime
+		call = ntheory.generate.prime
 	),
 	'Æn': attrdict(
 		arity = 1,
 		ldepth = 0,
-		call = sympy.ntheory.generate.nextprime
+		call = ntheory.generate.nextprime
 	),
 	'ÆP': attrdict(
 		arity = 1,
 		ldepth = 0,
-		call = lambda z: int(sympy.primetest.isprime(z))
+		call = lambda z: int(primetest.isprime(z))
 	),
 	'Æp': attrdict(
 		arity = 1,
 		ldepth = 0,
-		call = sympy.ntheory.generate.prevprime
+		call = ntheory.generate.prevprime
 	),
 	'ÆR': attrdict(
 		arity = 1,
 		ldepth = 0,
-		call = lambda z: list(sympy.ntheory.generate.primerange(2, z + 1))
+		call = lambda z: list(ntheory.generate.primerange(2, z + 1))
 	),
 	'Ær': attrdict(
 		arity = 1,
@@ -1266,27 +1255,27 @@ atoms = {
 	'ÆT': attrdict(
 		arity = 1,
 		ldepth = 0,
-		call = lambda z: overload((math.tan, cmath.tan), z)
+		call = tan
 	),
 	'ÆṬ': attrdict(
 		arity = 1,
 		ldepth = 0,
-		call = lambda z: overload((math.atan, cmath.atan), z)
+		call = atan
 	),
 	'ÆṪ': attrdict(
 		arity = 1,
 		ldepth = 0,
-		call = lambda z: sympy.ntheory.factor_.totient(z) if z > 0 else 0
+		call = lambda z: ntheory.factor_.totient(z) if z > 0 else 0
 	),
 	'ÆS': attrdict(
 		arity = 1,
 		ldepth = 0,
-		call = lambda z: overload((math.sin, cmath.sin), z)
+		call = sin
 	),
 	'ÆṢ': attrdict(
 		arity = 1,
 		ldepth = 0,
-		call = lambda z: overload((math.asin, cmath.asin), z)
+		call = asin
 	),
 	'Æ²': attrdict(
 		arity = 1,
@@ -1301,13 +1290,13 @@ atoms = {
 	'Æ°': attrdict(
 		arity = 1,
 		ldepth = 0,
-		call = math.degrees
+		call = deg
 	),
 	'æA': attrdict(
 		arity = 2,
 		ldepth = 0,
 		rdepth = 0,
-		call = math.atan2
+		call = atan2
 	),
 	'Œ!': attrdict(
 		arity = 1,
@@ -1410,12 +1399,16 @@ atoms = {
 	),
 	'ØP': attrdict(
 		arity = 0,
-		call = lambda: math.pi
+		call = lambda: pi
 	),
 	'Øe': attrdict(
 		arity = 0,
-		call = lambda: math.e
+		call = lambda: E
 	),
+	'Øg': attrdict(
+		arity = 0,
+		call = lambda: GoldenRatio
+	)
 }
 
 quicks = {
@@ -1630,9 +1623,9 @@ str_realnum = str_realdec.join(['(?:', '?ȷ', '?|', ')'])
 str_complex = str_realnum.join(['(?:', '?ı', '?|', ')'])
 str_literal = '(?:' + str_strings + '|' + str_charlit + '|' + str_complex + ')'
 str_litlist = '\[*' + str_literal + '(?:(?:\]*,\[*)' + str_literal + ')*' + '\]*'
-str_nonlits = '|'.join(map(re.escape, list(atoms) + list(quicks) + list(hypers)))
+str_nonlits = '|'.join(map(regex.escape, list(atoms) + list(quicks) + list(hypers)))
 
-regex_chain = re.compile('(?:^|[' + str_arities + '])(?:' + str_nonlits + '|' + str_litlist + '| )+')
-regex_liter = re.compile(str_literal)
-regex_token = re.compile(str_nonlits + '|' + str_litlist)
-regex_flink = re.compile('(?=.)(?:[' + str_arities + ']|' + str_nonlits + '|' + str_litlist + '| )*¶?')
+regex_chain = regex.compile('(?:^|[' + str_arities + '])(?:' + str_nonlits + '|' + str_litlist + '| )+')
+regex_liter = regex.compile(str_literal)
+regex_token = regex.compile(str_nonlits + '|' + str_litlist)
+regex_flink = regex.compile('(?=.)(?:[' + str_arities + ']|' + str_nonlits + '|' + str_litlist + '| )*¶?')
