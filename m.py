@@ -182,15 +182,15 @@ def is_string(iterable):
 		return False
 	return all(map(lambda t: type(t) == str, iterable))
 
-def jelly_eval(code, arguments):
+def m_eval(code, arguments):
 	return variadic_chain(parse_code(code)[-1] if code else '', arguments)
 
-def jelly_uneval(argument, top = True):
+def m_uneval(argument, top = True):
 	the_type = type(argument)
 	if the_type in (float, int):
-		return jelly_uneval_real(argument)
+		return m_uneval_real(argument)
 	if the_type == complex:
-		return jelly_uneval_real(argument.real) + 'ı' + jelly_uneval_real(argument.imag)
+		return m_uneval_real(argument.real) + 'ı' + m_uneval_real(argument.imag)
 	if the_type == str:
 		return '”' + argument
 	if all(map(is_string, argument)):
@@ -201,10 +201,10 @@ def jelly_uneval(argument, top = True):
 		string = ''.join(argument)
 		if all(map(lambda t: code_page.find(t) < 250, string)):
 			return '“' + string + '”'
-	middle = ','.join(jelly_uneval(item, top = False) for item in argument)
+	middle = ','.join(m_uneval(item, top = False) for item in argument)
 	return middle if top else '[' + middle + ']'
 
-def jelly_uneval_real(number):
+def m_uneval_real(number):
 	string = str(number if number % 1 else int(number))
 	return string.lstrip('0') if number else string
 
@@ -559,7 +559,7 @@ def to_exponents(integer):
 			exponents.append(0)
 	return exponents
 
-def unicode_to_jelly(string):
+def unicode_to_m(string):
 	return ''.join(chr(code_page.find(char)) for char in str(string).replace('\n', '¶') if char in code_page)
 
 def unique(iterable):
@@ -604,7 +604,7 @@ def output(argument, end = '', transform = stringify):
 	if locale.getdefaultlocale()[1][0:3] == 'UTF':
 		print(transform(argument), end = end)
 	else:
-		print(unicode_to_jelly(transform(argument)), end = unicode_to_jelly(end))
+		print(unicode_to_m(transform(argument)), end = unicode_to_m(end))
 	return argument
 
 atoms = {
@@ -909,7 +909,7 @@ atoms = {
 	),
 	'Ṙ': attrdict(
 		arity = 1,
-		call = lambda z: output(z, transform = jelly_uneval)
+		call = lambda z: output(z, transform = m_uneval)
 	),
 	'r': attrdict(
 		arity = 2,
@@ -987,16 +987,16 @@ atoms = {
 	'V': attrdict(
 		arity = 1,
 		ldepth = 1,
-		call = lambda z: jelly_eval(''.join(z), [])
+		call = lambda z: m_eval(''.join(z), [])
 	),
 	'Ṿ': attrdict(
 		arity = 1,
-		call = jelly_uneval
+		call = m_uneval
 	),
 	'v': attrdict(
 		arity = 2,
 		ldepth = 1,
-		call = lambda x, y: jelly_eval(''.join(x), [y])
+		call = lambda x, y: m_eval(''.join(x), [y])
 	),
 	'W': attrdict(
 		arity = 1,
