@@ -976,16 +976,16 @@ atoms = {
 	'V': attrdict(
 		arity = 1,
 		ldepth = 1,
-		call = lambda z: m_eval(''.join(z), [])
+		call = lambda z: m_eval(''.join(map(str, z)), [])
 	),
 	'Ṿ': attrdict(
 		arity = 1,
-		call = m_uneval
+		call = lambda z: listify(m_uneval(z))
 	),
 	'v': attrdict(
 		arity = 2,
 		ldepth = 1,
-		call = lambda x, y: m_eval(''.join(x), [y])
+		call = lambda x, y: m_eval(''.join(map(str, x)), [y])
 	),
 	'W': attrdict(
 		arity = 1,
